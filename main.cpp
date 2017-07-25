@@ -57,8 +57,8 @@ int main(int argc, char *argv[])
 {
     Q_INIT_RESOURCE(sdi);
     QApplication app(argc, argv);
-    QCoreApplication::setApplicationName("SDI Example");
-    QCoreApplication::setOrganizationName("QtProject");
+    QCoreApplication::setApplicationName("IDEAWK");
+    QCoreApplication::setOrganizationName("HAJ");
     QCoreApplication::setApplicationVersion(QT_VERSION_STR);
     QCommandLineParser parser;
     parser.setApplicationDescription(QCoreApplication::applicationName());
@@ -75,8 +75,9 @@ int main(int argc, char *argv[])
         mainWin = newWin;
     }
 
-    if (!mainWin)
+    if (!mainWin) {
         mainWin = new MainWindow;
+    }
     mainWin->show();
 
     return app.exec();
