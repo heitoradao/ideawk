@@ -59,13 +59,15 @@ private:
     };
     QVector<HighlightingRule> highlightingRules;
 
-    QRegExp commentStartExpression;
-    QRegExp commentEndExpression;
-
-    QTextCharFormat tagFormat;
-    QTextCharFormat attributeFormat;
-    QTextCharFormat attributeContentFormat;
+    QTextCharFormat stringFormat;
     QTextCharFormat commentFormat;
+    QTextCharFormat regexpFormat;
+    QTextCharFormat reservedWordFormat;
+
+#if 0        // not implemented yet
+    QTextCharFormat numberFormat;
+    QTextCharFormat operatorsFormat;
+#endif
 };
 
 #endif

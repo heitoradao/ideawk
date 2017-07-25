@@ -45,61 +45,60 @@ AwkSyntaxHighlighter::AwkSyntaxHighlighter(QTextDocument *parent)
 {
     HighlightingRule rule;
 
-    // tag format
-    tagFormat.setForeground(Qt::darkBlue);
-    tagFormat.setFontWeight(QFont::Bold);
-    rule.pattern = QRegExp("(<[a-zA-Z:]+\\b|<\\?[a-zA-Z:]+\\b|\\?>|>|/>|</[a-zA-Z:]+>)");
-    rule.format = tagFormat;
-    highlightingRules.append(rule);
-
-    // attribute format
-    attributeFormat.setForeground(Qt::darkGreen);
-    rule.pattern = QRegExp("[a-zA-Z:]+=");
-    rule.format = attributeFormat;
-    highlightingRules.append(rule);
-
-    // attribute content format
-    attributeContentFormat.setForeground(Qt::red);
+    // string
+    stringFormat.setForeground(Qt::red);
     rule.pattern = QRegExp("(\"[^\"]*\"|'[^']*')");
-    rule.format = attributeContentFormat;
+    rule.format = stringFormat;
     highlightingRules.append(rule);
 
+    // comments
     commentFormat.setForeground(Qt::lightGray);
     commentFormat.setFontItalic(true);
+    rule.pattern = QRegExp("#.*$");
+    rule.format = commentFormat;
+    highlightingRules.append(rule);
 
-    commentStartExpression = QRegExp("<!--");
-    commentEndExpression = QRegExp("-->");
+    // regular expression literal
+    regexpFormat.setForeground(Qt::red);
+    rule.pattern = QRegExp("/[^/]*/");
+    rule.format = regexpFormat;
+    highlightingRules.append(rule);
+
+    reservedWordFormat.setForeground(Qt::darkBlue);
+    rule.pattern = QRegExp("BEGIN|END|BEGINFILE|ENDFILE|print|printf");
+    rule.format = reservedWordFormat;
+    highlightingRules.append(rule);
 }
 
 void AwkSyntaxHighlighter::highlightBlock(const QString &text)
 {
-     for (const HighlightingRule &rule : qAsConst(highlightingRules)) {
-         QRegExp expression(rule.pattern);
-         int index = text.indexOf(expression);
-         while (index >= 0) {
-             int length = expression.matchedLength();
-             setFormat(index, length, rule.format);
-             index = text.indexOf(expression, index + length);
-         }
-     }
-     setCurrentBlockState(0);
-
-     int startIndex = 0;
-     if (previousBlockState() != 1)
-         startIndex = text.indexOf(commentStartExpression);
-
-     while (startIndex >= 0) {
-         int endIndex = text.indexOf(commentEndExpression, startIndex);
-         int commentLength;
-         if (endIndex == -1) {
-             setCurrentBlockState(1);
-             commentLength = text.length() - startIndex;
-         } else {
-             commentLength = endIndex - startIndex
-                             + commentEndExpression.matchedLength();
-         }
-         setFormat(startIndex, commentLength, commentFormat);
-         startIndex = text.indexOf(commentStartExpression,
+    for (const HighlightingRule &rule : qAsConst(highlightingRules)) {
+        QRegExp expression(rule.pattern);
+        int index = text.indexOf(expression);
+        while (index >= 0) {
+            int length = expression.matchedLength();
+            setFormat(index, length, rule.format);
+            index = text.indexOf(expression, index + length);
+        }
+    }
+    setCurrentBlockState(0);
+#if 0
+    int startIndex = 0;
+    if (previousBlockState() != 1)
+        startIndex = text.indexOf(commentStartExpression);
+    while (startIndex >= 0) {
+        int endIndex = text.indexOf(commentEndExpression, startIndex);
+        int commentLength;
+        if (endIndex == -1) {
+            setCurrentBlockState(1);
+            commentLength = text.length() - startIndex;
+        } else {
+            commentLength = endIndex - startIndex
+                            + commentEndExpression.matchedLength();
+        }
+        setFormat(startIndex, commentLength, commentFormat);
+        startIndex = text.indexOf(commentStartExpression,
                                                  startIndex + commentLength);
-     }
+    }
+#endif
 }
