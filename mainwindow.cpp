@@ -51,18 +51,26 @@
 #include <QtWidgets>
 
 #include "mainwindow.h"
+#include "ui_mainwindow.h"
 #include "awksyntaxhighlighter.h"
 
 MainWindow::MainWindow()
+    : m_ui(new Ui::MainWindow)
 {
     init();
     setCurrentFile(QString());
 }
 
 MainWindow::MainWindow(const QString &fileName)
+    : m_ui(new Ui::MainWindow)
 {
     init();
     loadFile(fileName);
+}
+
+MainWindow::~MainWindow()
+{
+    delete m_ui;
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
@@ -115,13 +123,13 @@ void MainWindow::openFile(const QString &fileName)
 
 bool MainWindow::save()
 {
-    return isUntitled ? saveAs() : saveFile(curFile);
+    return isUntitled ? saveAs() : saveFile(mAwkProgram);
 }
 
 bool MainWindow::saveAs()
 {
     QString fileName = QFileDialog::getSaveFileName(this, tr("Save As"),
-                                                    curFile);
+                                                    mAwkProgram);
     if (fileName.isEmpty())
         return false;
 
@@ -130,7 +138,7 @@ bool MainWindow::saveAs()
 
 void MainWindow::about()
 {
-   QMessageBox::about(this, tr("About SDI"),
+   QMessageBox::about(this, tr("About IDEAWK"),
             tr("The <b>SDI</b> example demonstrates how to write single "
                "document interface applications using Qt."));
 }
@@ -140,17 +148,71 @@ void MainWindow::documentWasModified()
     setWindowModified(true);
 }
 
+void MainWindow::loadInput()
+{
+    QString filters(tr("All files (*.*);;AWK files (*.awk)"));
+    QString selectedFilter(tr("AWK files (*.awk)"));
+    QString inputFilePath =
+    QFileDialog::getOpenFileName(this, qApp->applicationDisplayName(),
+                                 QStringLiteral(""),
+                                 filters,
+                                 &selectedFilter);
+
+    if (inputFilePath.isEmpty()) {
+        return;
+    }
+
+    QFile inputFile(inputFilePath);
+    if (!inputFile.open(QIODevice::ReadOnly)) {
+        return;
+    }
+    mInputPath = inputFilePath;
+    m_ui->textEditInputAwk->setPlainText(inputFile.readAll());
+}
+
+void MainWindow::run()
+{
+    QProcess *process = new QProcess;
+    QString program("awk");
+    QStringList arguments;
+    arguments << "-f" << mAwkProgram << mInputPath;
+    //connect(process, &QIODevice::finished, this, &MainWindow::readOutputFromAwk);
+    connect(process, SIGNAL(finished(int)), this, SLOT(readOutputFromAwk()));
+    process->start(program, arguments);
+
+    // take the content of input and store in a temp file
+    // store the path of this temp file
+    // invoke awk using QProcess, passing the program path as the argument
+    // and the path of temporary file wich is holding the input to the program
+}
+
+void MainWindow::readOutputFromAwk()
+{
+    QProcess *process = qobject_cast<QProcess*>(sender());
+    QString output = process->readAllStandardOutput();
+    m_ui->textBrowser->setPlainText(output);
+    process->deleteLater();
+}
+
 void MainWindow::init()
 {
+    m_ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
     isUntitled = true;
 
-    textEdit = new QTextEdit;
-    setCentralWidget(textEdit);
-    //textEdit->setTabStopWidth(4);
+    textEdit = m_ui->textEditAwkProgram;
+
+
+#ifdef Q_OS_LINUX
+    KSyntaxHighlighter syntaxHighlighter;
+#endif
 
     new AwkSyntaxHighlighter(textEdit->document());
+
+
+
+
 
     createActions();
     createStatusBar();
@@ -168,54 +230,41 @@ void MainWindow::tile(const QMainWindow *previous)
     if (!previous)
         return;
     int topFrameWidth = previous->geometry().top() - previous->pos().y();
-    if (!topFrameWidth)
+    if (!topFrameWidth) {
         topFrameWidth = 40;
+    }
     const QPoint pos = previous->pos() + 2 * QPoint(topFrameWidth, topFrameWidth);
-    if (QApplication::desktop()->availableGeometry(this).contains(rect().bottomRight() + pos))
+    if (QApplication::desktop()->availableGeometry(this).contains(rect().bottomRight() + pos)) {
         move(pos);
+    }
 }
 
 //! [implicit tr context]
 void MainWindow::createActions()
 {
-    QMenu *fileMenu = menuBar()->addMenu(tr("&File"));
+    QMenu *fileMenu = m_ui->menuFile;
 //! [implicit tr context]
-    QToolBar *fileToolBar = addToolBar(tr("File"));
 
-    const QIcon newIcon = QIcon::fromTheme("document-new", QIcon(":/images/new.png"));
-    QAction *newAct = new QAction(newIcon, tr("&New"), this);
-    newAct->setShortcuts(QKeySequence::New);
-    newAct->setStatusTip(tr("Create a new file"));
-    connect(newAct, &QAction::triggered, this, &MainWindow::newFile);
-    fileMenu->addAction(newAct);
-    fileToolBar->addAction(newAct);
+    // new
+    m_ui->actionNew->setShortcuts(QKeySequence::New);
+    connect(m_ui->actionNew, &QAction::triggered, this, &MainWindow::newFile);
 
-    const QIcon openIcon = QIcon::fromTheme("document-open", QIcon(":/images/open.png"));
-    QAction *openAct = new QAction(openIcon, tr("&Open..."), this);
-    openAct->setShortcuts(QKeySequence::Open);
-    openAct->setStatusTip(tr("Open an existing file"));
-    connect(openAct, &QAction::triggered, this, &MainWindow::open);
-    fileMenu->addAction(openAct);
-    fileToolBar->addAction(openAct);
+    // open
+    m_ui->actionOpen->setShortcuts(QKeySequence::Open);
+    connect(m_ui->actionOpen, &QAction::triggered, this, &MainWindow::open);
 
-    const QIcon saveIcon = QIcon::fromTheme("document-save", QIcon(":/images/save.png"));
-    QAction *saveAct = new QAction(saveIcon, tr("&Save"), this);
-    saveAct->setShortcuts(QKeySequence::Save);
-    saveAct->setStatusTip(tr("Save the document to disk"));
-    connect(saveAct, &QAction::triggered, this, &MainWindow::save);
-    fileMenu->addAction(saveAct);
-    fileToolBar->addAction(saveAct);
+    // save
+    m_ui->actionSave->setShortcuts(QKeySequence::Save);
+    connect(m_ui->actionSave, &QAction::triggered, this, &MainWindow::save);
 
-    const QIcon saveAsIcon = QIcon::fromTheme("document-save-as");
-    QAction *saveAsAct = fileMenu->addAction(saveAsIcon, tr("Save &As..."), this, &MainWindow::saveAs);
-    saveAsAct->setShortcuts(QKeySequence::SaveAs);
-    saveAsAct->setStatusTip(tr("Save the document under a new name"));
+
+    m_ui->actionSaveAs->setShortcuts(QKeySequence::SaveAs);
 
     fileMenu->addSeparator();
 
-    QMenu *recentMenu = fileMenu->addMenu(tr("Recent..."));
-    connect(recentMenu, &QMenu::aboutToShow, this, &MainWindow::updateRecentFileActions);
-    recentFileSubMenuAct = recentMenu->menuAction();
+    QMenu *recentMenu = m_ui->menuRecentFiles;
+    connect(m_ui->menuRecentFiles, &QMenu::aboutToShow, this, &MainWindow::updateRecentFileActions);
+    mRecentFileSubMenuAct = recentMenu->menuAction();
 
     for (int i = 0; i < MaxRecentFiles; ++i) {
         recentFileActs[i] = recentMenu->addAction(QString(), this, &MainWindow::openRecentFile);
@@ -226,62 +275,36 @@ void MainWindow::createActions()
 
     setRecentFilesVisible(MainWindow::hasRecentFiles());
 
-    QAction *closeAct = fileMenu->addAction(tr("&Close"), this, &QWidget::close);
-    closeAct->setShortcut(tr("Ctrl+W"));
-    closeAct->setStatusTip(tr("Close this window"));
+    connect(m_ui->actionClose, SIGNAL(triggered(bool)), this, SLOT(close()));
 
-    const QIcon exitIcon = QIcon::fromTheme("application-exit");
-    QAction *exitAct = fileMenu->addAction(exitIcon, tr("E&xit"), qApp, &QApplication::closeAllWindows);
-    exitAct->setShortcuts(QKeySequence::Quit);
-    exitAct->setStatusTip(tr("Exit the application"));
-
-    QMenu *editMenu = menuBar()->addMenu(tr("&Edit"));
-    QToolBar *editToolBar = addToolBar(tr("Edit"));
+    // exit
+    connect(m_ui->actionExit, SIGNAL(triggered(bool)), qApp, SLOT(closeAllWindows()));
+    m_ui->actionExit->setShortcuts(QKeySequence::Quit);
 
 #ifndef QT_NO_CLIPBOARD
-    const QIcon cutIcon = QIcon::fromTheme("edit-cut", QIcon(":/images/cut.png"));
-    QAction *cutAct = new QAction(cutIcon, tr("Cu&t"), this);
-    cutAct->setShortcuts(QKeySequence::Cut);
-    cutAct->setStatusTip(tr("Cut the current selection's contents to the "
-                            "clipboard"));
-    connect(cutAct, &QAction::triggered, textEdit, &QTextEdit::cut);
-    editMenu->addAction(cutAct);
-    editToolBar->addAction(cutAct);
+    // cut
+    m_ui->actionCut->setShortcuts(QKeySequence::Cut);
+    connect(m_ui->actionCut, &QAction::triggered, textEdit, &QTextEdit::cut);
 
-    const QIcon copyIcon = QIcon::fromTheme("edit-copy", QIcon(":/images/copy.png"));
-    QAction *copyAct = new QAction(copyIcon, tr("&Copy"), this);
-    copyAct->setShortcuts(QKeySequence::Copy);
-    copyAct->setStatusTip(tr("Copy the current selection's contents to the "
-                             "clipboard"));
-    connect(copyAct, &QAction::triggered, textEdit, &QTextEdit::copy);
-    editMenu->addAction(copyAct);
-    editToolBar->addAction(copyAct);
+    // copy
+    m_ui->actionCopy->setShortcuts(QKeySequence::Copy);
+    connect(m_ui->actionCopy, &QAction::triggered, textEdit, &QTextEdit::copy);
 
-    const QIcon pasteIcon = QIcon::fromTheme("edit-paste", QIcon(":/images/paste.png"));
-    QAction *pasteAct = new QAction(pasteIcon, tr("&Paste"), this);
-    pasteAct->setShortcuts(QKeySequence::Paste);
-    pasteAct->setStatusTip(tr("Paste the clipboard's contents into the current "
-                              "selection"));
-    connect(pasteAct, &QAction::triggered, textEdit, &QTextEdit::paste);
-    editMenu->addAction(pasteAct);
-    editToolBar->addAction(pasteAct);
+    // paste
+    m_ui->actionPaste->setShortcuts(QKeySequence::Paste);
+    connect(m_ui->actionPaste, &QAction::triggered, textEdit, &QTextEdit::paste);
 
     menuBar()->addSeparator();
 #endif // !QT_NO_CLIPBOARD
 
-    QMenu *helpMenu = menuBar()->addMenu(tr("&Help"));
-    QAction *aboutAct = helpMenu->addAction(tr("&About"), this, &MainWindow::about);
-    aboutAct->setStatusTip(tr("Show the application's About box"));
+    // the AWK related things
+    connect(m_ui->actionLoadInput, &QAction::triggered, this, &MainWindow::loadInput);
+    connect(m_ui->actionRun, &QAction::triggered, this, &MainWindow::run);
 
-    QAction *aboutQtAct = helpMenu->addAction(tr("About &Qt"), qApp, &QApplication::aboutQt);
-    aboutQtAct->setStatusTip(tr("Show the Qt library's About box"));
 
-#ifndef QT_NO_CLIPBOARD
-    cutAct->setEnabled(false);
-    copyAct->setEnabled(false);
-    connect(textEdit, &QTextEdit::copyAvailable, cutAct, &QAction::setEnabled);
-    connect(textEdit, &QTextEdit::copyAvailable, copyAct, &QAction::setEnabled);
-#endif // !QT_NO_CLIPBOARD
+
+    connect(m_ui->actionAbout, &QAction::triggered, this, &MainWindow::about);
+    connect(m_ui->actionAboutQt, &QAction::triggered, qApp, &QApplication::aboutQt);
 }
 
 void MainWindow::createStatusBar()
@@ -309,16 +332,29 @@ void MainWindow::writeSettings()
     settings.setValue("geometry", saveGeometry());
 }
 
+
+
+/*!
+ * \return Should exit?
+ */
 bool MainWindow::maybeSave()
 {
     if (!textEdit->document()->isModified())
         return true;
-    const QMessageBox::StandardButton ret
-        = QMessageBox::warning(this, tr("SDI"),
+
+#if 0
+    QMessageBox *messagebox = new QMessageBox(this);
+    ret = messagebox->exec();
+#else
+    const QMessageBox::StandardButton
+    ret = QMessageBox::warning(this, qApp->applicationDisplayName(),
                                tr("The document has been modified.\n"
                                   "Do you want to save your changes?"),
                                QMessageBox::Save | QMessageBox::Discard
                                | QMessageBox::Cancel);
+#endif
+
+
     switch (ret) {
     case QMessageBox::Save:
         return save();
@@ -352,7 +388,7 @@ void MainWindow::loadFile(const QString &fileName)
 
 void MainWindow::setRecentFilesVisible(bool visible)
 {
-    recentFileSubMenuAct->setVisible(visible);
+    mRecentFileSubMenuAct->setVisible(visible);
     recentFileSeparator->setVisible(visible);
 }
 
@@ -453,18 +489,18 @@ void MainWindow::setCurrentFile(const QString &fileName)
 
     isUntitled = fileName.isEmpty();
     if (isUntitled) {
-        curFile = tr("document%1.txt").arg(sequenceNumber++);
+        mAwkProgram = tr("document%1.awk").arg(sequenceNumber++);
     } else {
-        curFile = QFileInfo(fileName).canonicalFilePath();
+        mAwkProgram = QFileInfo(fileName).canonicalFilePath();
     }
 
     textEdit->document()->setModified(false);
     setWindowModified(false);
 
-    if (!isUntitled && windowFilePath() != curFile)
-        MainWindow::prependToRecentFiles(curFile);
+    if (!isUntitled && windowFilePath() != mAwkProgram)
+        MainWindow::prependToRecentFiles(mAwkProgram);
 
-    setWindowFilePath(curFile);
+    setWindowFilePath(mAwkProgram);
 }
 
 QString MainWindow::strippedName(const QString &fullFileName)
@@ -478,9 +514,9 @@ MainWindow *MainWindow::findMainWindow(const QString &fileName) const
 
     foreach (QWidget *widget, QApplication::topLevelWidgets()) {
         MainWindow *mainWin = qobject_cast<MainWindow *>(widget);
-        if (mainWin && mainWin->curFile == canonicalFilePath)
+        if (mainWin && mainWin->mAwkProgram == canonicalFilePath)
             return mainWin;
     }
 
-    return 0;
+    return nullptr;
 }

@@ -1,14 +1,14 @@
 # ideawk - a simple awk ide
-# march, 2017
 # Heitor Adao Junior <heitor.adao@gmail.com>
+# 2017-04
 
-QT += widgets
+greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
+CONFIG += c++14
 
 HEADERS       = mainwindow.h awksyntaxhighlighter.h
-SOURCES       = main.cpp \
-                mainwindow.cpp awksyntaxhighlighter.cpp
+SOURCES       = main.cpp mainwindow.cpp awksyntaxhighlighter.cpp
 RESOURCES     = sdi.qrc
 
-# install
-#target.path = $$[QT_INSTALL_EXAMPLES]/widgets/mainwindows/sdi
-#INSTALLS += target
+TRANSLATIONS += pt_br.ts
+
+FORMS += mainwindow.ui

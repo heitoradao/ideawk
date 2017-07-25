@@ -60,15 +60,19 @@ class QMenu;
 class QTextEdit;
 QT_END_NAMESPACE
 
-//! [class definition with macro]
+namespace Ui {
+    class MainWindow;
+}
+
+
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
 
 public:
     MainWindow();
-//! [class definition with macro]
     explicit MainWindow(const QString &fileName);
+    ~MainWindow();
 
     void tile(const QMainWindow *previous);
 
@@ -85,8 +89,23 @@ private slots:
     void about();
     void documentWasModified();
 
+    void loadInput();
+    void run();
+    void readOutputFromAwk();
+
 private:
     enum { MaxRecentFiles = 5 };
+
+    Ui::MainWindow *m_ui;
+    QTextEdit *textEdit;
+
+    QAction *recentFileActs[MaxRecentFiles];
+    QAction *recentFileSeparator;
+    QAction *mRecentFileSubMenuAct;
+
+    QString mAwkProgram;
+    QString mInputPath;
+    bool isUntitled;
 
     void init();
     void createActions();
@@ -104,14 +123,6 @@ private:
     static QString strippedName(const QString &fullFileName);
     MainWindow *findMainWindow(const QString &fileName) const;
 
-    QTextEdit *textEdit;
-
-    QAction *recentFileActs[MaxRecentFiles];
-    QAction *recentFileSeparator;
-    QAction *recentFileSubMenuAct;
-
-    QString curFile;
-    bool isUntitled;
 };
 
 #endif
