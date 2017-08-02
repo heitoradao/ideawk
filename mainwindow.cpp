@@ -205,7 +205,7 @@ void MainWindow::init()
 
 
 #ifdef Q_OS_LINUX
-    KSyntaxHighlighter syntaxHighlighter;
+    //KSyntaxHighlighter syntaxHighlighter;
 #endif
 
     new AwkSyntaxHighlighter(textEdit->document());
